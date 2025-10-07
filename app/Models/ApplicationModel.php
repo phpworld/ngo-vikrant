@@ -104,27 +104,42 @@ class ApplicationModel extends Model
 
     public function getApplicationsByType($type)
     {
-        return $this->where('application_type', $type)->findAll();
+        return $this->select('applications.*, users.full_name as user_name, users.email')
+                   ->join('users', 'users.id = applications.user_id')
+                   ->where('application_type', $type)
+                   ->findAll();
     }
 
     public function getApplicationsByStatus($status)
     {
-        return $this->where('status', $status)->findAll();
+        return $this->select('applications.*, users.full_name as user_name, users.email')
+                   ->join('users', 'users.id = applications.user_id')
+                   ->where('applications.status', $status)
+                   ->findAll();
     }
 
     public function getPendingApplications()
     {
-        return $this->where('status', 'pending')->findAll();
+        return $this->select('applications.*, users.full_name as user_name, users.email')
+                   ->join('users', 'users.id = applications.user_id')
+                   ->where('applications.status', 'pending')
+                   ->findAll();
     }
 
     public function getApprovedApplications()
     {
-        return $this->where('status', 'approved')->findAll();
+        return $this->select('applications.*, users.full_name as user_name, users.email')
+                   ->join('users', 'users.id = applications.user_id')
+                   ->where('applications.status', 'approved')
+                   ->findAll();
     }
 
     public function getRejectedApplications()
     {
-        return $this->where('status', 'rejected')->findAll();
+        return $this->select('applications.*, users.full_name as user_name, users.email')
+                   ->join('users', 'users.id = applications.user_id')
+                   ->where('applications.status', 'rejected')
+                   ->findAll();
     }
 
     public function getApplicationsWithUserData()

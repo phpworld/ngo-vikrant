@@ -139,7 +139,7 @@
                                     <td>
                                         <div>
                                             <h6 class="mb-0"><?= esc($application['applicant_name']) ?></h6>
-                                            <small class="text-muted"><?= esc($application['applicant_email']) ?></small>
+                                            <small class="text-muted"><?= esc($application['email']) ?></small>
                                         </div>
                                     </td>
                                     <td>
