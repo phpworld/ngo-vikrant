@@ -30,7 +30,7 @@
                             कुल सदस्य
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= count($users) ?>
+                            <?= $totalUsers ?>
                         </div>
                     </div>
                     <div class="flex-shrink-0">
@@ -51,7 +51,7 @@
                             सक्रिय सदस्य
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= count(array_filter($users, function($user) { return $user['status'] == 'active'; })) ?>
+                            <?= $activeUsers ?>
                         </div>
                     </div>
                     <div class="flex-shrink-0">
@@ -72,7 +72,7 @@
                             निष्क्रिय सदस्य
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= count(array_filter($users, function($user) { return $user['status'] == 'inactive'; })) ?>
+                            <?= $inactiveUsers ?>
                         </div>
                     </div>
                     <div class="flex-shrink-0">
@@ -93,9 +93,7 @@
                             आज के नए सदस्य
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= count(array_filter($users, function($user) { 
-                                return date('Y-m-d', strtotime($user['created_at'])) == date('Y-m-d'); 
-                            })) ?>
+                            <?= $todayUsers ?>
                         </div>
                     </div>
                     <div class="flex-shrink-0">
@@ -117,17 +115,24 @@
             <i class="fas fa-list me-2"></i>सदस्यों की सूची
         </h6>
         <div class="d-flex gap-2">
-            <div class="input-group" style="width: 250px;">
-                <input type="text" class="form-control" id="searchUsers" placeholder="नाम या ईमेल खोजें...">
-                <button class="btn btn-outline-secondary" type="button">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-            <select class="form-select" id="statusFilter" style="width: 150px;">
-                <option value="">सभी स्थिति</option>
-                <option value="active">सक्रिय</option>
-                <option value="inactive">निष्क्रिय</option>
-            </select>
+            <form method="GET" action="/admin/users" class="d-flex gap-2">
+                <div class="input-group" style="width: 250px;">
+                    <input type="text" class="form-control" name="search" placeholder="नाम या ईमेल खोजें..." value="<?= esc($filters['search'] ?? '') ?>">
+                    <button class="btn btn-outline-secondary" type="submit">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <select class="form-select" name="status" style="width: 150px;" onchange="this.form.submit()">
+                    <option value="">सभी स्थिति</option>
+                    <option value="active" <?= ($filters['status'] ?? '') === 'active' ? 'selected' : '' ?>>सक्रिय</option>
+                    <option value="inactive" <?= ($filters['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>निष्क्रिय</option>
+                </select>
+                <?php if (!empty($filters['search']) || !empty($filters['status'])): ?>
+                    <a href="/admin/users" class="btn btn-outline-danger">
+                        <i class="fas fa-times"></i> साफ़ करें
+                    </a>
+                <?php endif; ?>
+            </form>
         </div>
     </div>
     <div class="card-body p-0">
@@ -211,6 +216,21 @@
                 </table>
             </div>
         </div>
+        
+        <!-- Pagination Controls -->
+        <?php if ($pager->getPageCount() > 1): ?>
+            <div class="card-footer bg-white border-top-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted">
+                        पृष्ठ <?= $pager->getCurrentPage() ?> का <?= $pager->getPageCount() ?> 
+                        (कुल <?= $totalUsers ?> सदस्य)
+                    </div>
+                    <nav aria-label="उपयोगकर्ता पेजिनेशन">
+                        <?= $pager->links() ?>
+                    </nav>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -327,26 +347,6 @@
 </style>
 
 <script>
-function searchUsers() {
-    const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    const rows = document.querySelectorAll('#usersTable tbody tr[data-user-id]');
-    
-    rows.forEach(row => {
-        const name = row.cells[1].textContent.toLowerCase();
-        const email = row.cells[3].textContent.toLowerCase();
-        const status = row.cells[5].textContent.toLowerCase();
-        
-        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
-        const matchesStatus = !statusFilter || status.includes(statusFilter === 'active' ? 'सक्रिय' : 'निष्क्रिय');
-        
-        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
-    });
-}
-
-document.getElementById('searchUsers').addEventListener('input', searchUsers);
-document.getElementById('statusFilter').addEventListener('change', searchUsers);
-
 function viewUser(userId) {
     // Implementation for viewing user details
     console.log('View user:', userId);

@@ -53,9 +53,56 @@ class Admin extends BaseController
         $auth = $this->checkAdminAuth();
         if ($auth !== true) return $auth;
 
+        // Get pagination parameters
+        $perPage = 10; // Number of users per page
+        $page = (int) ($this->request->getGet('page') ?? 1);
+        
+        // Get filter parameters
+        $status = $this->request->getGet('status');
+        $search = $this->request->getGet('search');
+
+        // Build query with filters
+        $builder = $this->userModel->where('role', 'member');
+        
+        if ($status && in_array($status, ['active', 'inactive'])) {
+            $builder->where('status', $status);
+        }
+        
+        if ($search) {
+            $builder->groupStart()
+                   ->like('full_name', $search)
+                   ->orLike('username', $search)
+                   ->orLike('email', $search)
+                   ->orLike('phone', $search)
+                   ->groupEnd();
+        }
+
+        // Get paginated users
+        $users = $builder->paginate($perPage, 'default', $page);
+        $pager = $this->userModel->pager;
+
+        // Get total counts for statistics
+        $totalUsers = $this->userModel->where('role', 'member')->countAllResults(false);
+        $activeUsers = $this->userModel->where('role', 'member')->where('status', 'active')->countAllResults(false);
+        $inactiveUsers = $this->userModel->where('role', 'member')->where('status', 'inactive')->countAllResults(false);
+        $todayUsers = $this->userModel->where('role', 'member')
+                                      ->where('DATE(created_at)', date('Y-m-d'))
+                                      ->countAllResults(false);
+
         $data = [
             'title' => 'उपयोगकर्ता प्रबंधन',
-            'users' => $this->userModel->where('role', 'member')->findAll(),
+            'users' => $users,
+            'pager' => $pager,
+            'totalUsers' => $totalUsers,
+            'activeUsers' => $activeUsers,
+            'inactiveUsers' => $inactiveUsers,
+            'todayUsers' => $todayUsers,
+            'currentPage' => $page,
+            'perPage' => $perPage,
+            'filters' => [
+                'status' => $status,
+                'search' => $search
+            ],
             'user_name' => $this->session->get('user_name')
         ];
 
@@ -130,12 +177,12 @@ class Admin extends BaseController
         $totalApplications = $this->applicationModel->countAllResults();
         $approvedApplications = $this->applicationModel->where('status', 'approved')->countAllResults();
         
-        // Calculate total amount (assuming we have amount_approved field)
-        $totalAmountResult = $this->applicationModel->selectSum('amount_requested')
+        // Calculate total amount disbursed
+        $totalAmountResult = $this->applicationModel->selectSum('approved_amount')
                                                    ->where('status', 'approved')
                                                    ->get()
                                                    ->getRow();
-        $totalAmount = $totalAmountResult ? $totalAmountResult->amount_requested : 0;
+        $totalAmount = $totalAmountResult ? $totalAmountResult->approved_amount : 0;
 
         $data = [
             'title' => 'रिपोर्ट्स',

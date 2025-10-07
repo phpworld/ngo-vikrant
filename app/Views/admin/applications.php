@@ -147,7 +147,7 @@
                                             <?= $application['application_type'] == 'vivah_help' ? 'विवाह सहायता' : 'मृत्यु सहायता' ?>
                                         </span>
                                     </td>
-                                    <td>₹<?= number_format($application['amount_requested']) ?></td>
+                                    <td>₹<?= number_format($application['application_amount']) ?></td>
                                     <td>
                                         <span class="badge 
                                             <?= $application['status'] == 'pending' ? 'bg-warning' : 
