@@ -19,6 +19,16 @@
     </div>
 </div>
 
+<!-- Workflow Information -->
+<div class="alert alert-info d-flex align-items-center mb-4">
+    <i class="fas fa-info-circle me-3 fa-lg"></i>
+    <div>
+        <strong>कार्यप्रणाली:</strong> 
+        आवेदनों को स्वीकृत/अस्वीकृत करने के लिए पहले "विवरण देखें" बटन पर क्लिक करें। 
+        विस्तृत जानकारी देखने के बाद ही आप उचित निर्णय ले सकेंगे।
+    </div>
+</div>
+
 <!-- Statistics Cards -->
 <div class="row g-3 mb-4">
     <div class="col-xl-3 col-md-6">
@@ -128,7 +138,7 @@
                             <th>राशि</th>
                             <th>स्थिति</th>
                             <th>आवेदन दिनांक</th>
-                            <th>कार्य</th>
+                            <th>विवरण देखें</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -159,17 +169,10 @@
                                     <td><?= date('d/m/Y', strtotime($application['created_at'])) ?></td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="viewApplication(<?= $application['id'] ?>)">
-                                                <i class="fas fa-eye"></i>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="viewApplication(<?= $application['id'] ?>)" 
+                                                    title="विवरण देखें">
+                                                <i class="fas fa-eye me-1"></i>विवरण देखें
                                             </button>
-                                            <?php if ($application['status'] == 'pending'): ?>
-                                                <button class="btn btn-sm btn-outline-success" onclick="updateApplicationStatus(<?= $application['id'] ?>, 'approved')">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="updateApplicationStatus(<?= $application['id'] ?>, 'rejected')">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -241,34 +244,8 @@ document.getElementById('statusFilter').addEventListener('change', filterApplica
 document.getElementById('typeFilter').addEventListener('change', filterApplications);
 
 function viewApplication(applicationId) {
-    // Implementation for viewing application details
-    console.log('View application:', applicationId);
-}
-
-function updateApplicationStatus(applicationId, newStatus) {
-    const statusText = newStatus === 'approved' ? 'स्वीकृत' : 'अस्वीकृत';
-    if (confirm(`क्या आप इस आवेदन को ${statusText} करना चाहते हैं?`)) {
-        // Send AJAX request to update status
-        fetch('/admin/update-application-status', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({
-                application_id: applicationId,
-                status: newStatus
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('स्थिति अपडेट करने में त्रुटि हुई');
-            }
-        });
-    }
+    // Redirect to application details page
+    window.location.href = '/admin/application-details/' + applicationId;
 }
 
 function exportApplications() {

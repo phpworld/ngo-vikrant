@@ -249,6 +249,100 @@ class Admin extends BaseController
         }
     }
 
+    public function applicationDetails($id)
+    {
+        $auth = $this->checkAdminAuth();
+        if ($auth !== true) return $auth;
+
+        // Get application with user data
+        $application = $this->applicationModel->select('applications.*, users.full_name as user_name, users.email, users.username, users.phone as user_phone, users.address as user_address, users.aadhar_number as user_aadhar')
+                                             ->join('users', 'users.id = applications.user_id')
+                                             ->where('applications.id', $id)
+                                             ->first();
+
+        if (!$application) {
+            return redirect()->to('/admin/applications')->with('error', 'आवेदन नहीं मिला');
+        }
+
+        $data = [
+            'title' => 'आवेदन विवरण',
+            'application' => $application,
+            'user_name' => $this->session->get('user_name')
+        ];
+
+        return view('admin/application_details', $data);
+    }
+
+    public function processApplicationAction()
+    {
+        $auth = $this->checkAdminAuth();
+        if ($auth !== true) return $auth;
+
+        $rules = [
+            'application_id' => 'required|numeric',
+            'action' => 'required|in_list[approved,rejected,processing,pending]',
+            'admin_remarks' => 'required|min_length[20]'
+        ];
+
+        $messages = [
+            'application_id' => [
+                'required' => 'आवेदन ID आवश्यक है',
+                'numeric' => 'गलत आवेदन ID'
+            ],
+            'action' => [
+                'required' => 'कार्रवाई का चयन आवश्यक है',
+                'in_list' => 'गलत कार्रवाई चुनी गई'
+            ],
+            'admin_remarks' => [
+                'required' => 'टिप्पणी आवश्यक है',
+                'min_length' => 'टिप्पणी कम से कम 10 अक्षर की होनी चाहिए'
+            ]
+        ];
+
+        if (!$this->validate($rules, $messages)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $applicationId = $this->request->getPost('application_id');
+        $action = $this->request->getPost('action');
+        $adminRemarks = $this->request->getPost('admin_remarks');
+        $approvedAmount = $this->request->getPost('approved_amount') ?: 0;
+
+        // Get application details
+        $application = $this->applicationModel->find($applicationId);
+        if (!$application) {
+            return redirect()->to('/admin/applications')->with('error', 'आवेदन नहीं मिला');
+        }
+
+        // Update application status
+        $updateData = [
+            'status' => $action,
+            'admin_remarks' => $adminRemarks,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        if ($action === 'approved') {
+            $updateData['approved_amount'] = $approvedAmount ?: $application['application_amount'];
+            $updateData['approved_by'] = $this->session->get('user_id');
+            $updateData['approved_date'] = date('Y-m-d H:i:s');
+        }
+
+        if ($this->applicationModel->update($applicationId, $updateData)) {
+            $statusText = match($action) {
+                'approved' => 'स्वीकृत',
+                'rejected' => 'अस्वीकृत',
+                'processing' => 'प्रक्रियाधीन',
+                'pending' => 'लंबित',
+                default => 'अपडेट'
+            };
+            
+            return redirect()->to('/admin/application-details/' . $applicationId)
+                           ->with('success', 'आवेदन की स्थिति ' . $statusText . ' में अपडेट की गई');
+        } else {
+            return redirect()->back()->with('error', 'आवेदन अपडेट करने में त्रुटि हुई');
+        }
+    }
+
     public function toggleUserStatus($id)
     {
         $auth = $this->checkAdminAuth();

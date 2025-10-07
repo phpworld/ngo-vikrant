@@ -31,7 +31,9 @@ $routes->group('admin', ['filter' => 'auth'], function($routes) {
     $routes->get('dashboard', 'Admin::dashboard');
     $routes->get('users', 'Admin::users');
     $routes->get('applications', 'Admin::applications');
+    $routes->get('application-details/(:num)', 'Admin::applicationDetails/$1');
     $routes->post('update-application-status', 'Admin::updateApplicationStatus');
+    $routes->post('process-application-action', 'Admin::processApplicationAction');
     $routes->get('reports', 'Admin::reports');
     $routes->get('settings', 'Admin::settings');
     $routes->get('delete-user/(:num)', 'Admin::deleteUser/$1');
