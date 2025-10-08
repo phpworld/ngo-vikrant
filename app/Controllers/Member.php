@@ -68,7 +68,8 @@ class Member extends BaseController
         $data = [
             'title' => 'मेरी प्रोफ़ाइल',
             'user' => $user,
-            'user_name' => $this->session->get('user_name')
+            'user_name' => $this->session->get('user_name'),
+            'validation' => \Config\Services::validation()
         ];
 
         return view('member/profile', $data);
