@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\UserModel;
 use App\Models\ApplicationModel;
+use Exception;
 
 class Member extends BaseController
 {
@@ -16,6 +17,29 @@ class Member extends BaseController
         $this->userModel = new UserModel();
         $this->applicationModel = new ApplicationModel();
         $this->session = \Config\Services::session();
+    }
+    
+    /**
+     * Generate short filename with prefix (max 30 characters)
+     * Format: PREFIX_YYYYMMDD_RANDOM.EXT
+     */
+    private function generateShortFilename($fieldType, $extension)
+    {
+        // Define prefixes for different document types
+        $prefixes = [
+            'aadhar_document' => 'ADH',
+            'income_document' => 'INC', 
+            'bank_document' => 'BNK',
+            'death_certificate' => 'DTH',
+            'other_documents' => 'OTH'
+        ];
+        
+        $prefix = $prefixes[$fieldType] ?? 'DOC';
+        $date = date('Ymd'); // 8 characters
+        $random = substr(uniqid(), -6); // 6 random characters
+        
+        // Format: PREFIX_YYYYMMDD_RANDOM.EXT (max 30 chars)
+        return $prefix . '_' . $date . '_' . $random . '.' . $extension;
     }
 
     private function checkMemberAuth()
@@ -81,11 +105,33 @@ class Member extends BaseController
         if ($auth !== true) return $auth;
 
         $userId = $this->session->get('user_id');
-        $applications = $this->applicationModel->getApplicationsByUser($userId);
+        
+        // Get filter parameters
+        $filters = [
+            'status' => $this->request->getGet('status') ?? '',
+            'type' => $this->request->getGet('type') ?? ''
+        ];
+        
+        // Build query
+        $builder = $this->applicationModel->where('user_id', $userId);
+        
+        if (!empty($filters['status'])) {
+            $builder->where('status', $filters['status']);
+        }
+        
+        if (!empty($filters['type'])) {
+            $builder->where('application_type', $filters['type']);
+        }
+        
+        // Get filtered applications with pagination
+        $applications = $builder->orderBy('created_at', 'DESC')->paginate(10);
+        $pager = $this->applicationModel->pager;
 
         $data = [
             'title' => 'मेरे आवेदन',
             'applications' => $applications,
+            'filters' => $filters,
+            'pager' => $pager,
             'user_name' => $this->session->get('user_name')
         ];
 
@@ -111,6 +157,15 @@ class Member extends BaseController
         $auth = $this->checkMemberAuth();
         if ($auth !== true) return $auth;
 
+        // Debug: Check upload configuration
+        log_message('info', 'PHP upload_max_filesize: ' . ini_get('upload_max_filesize'));
+        log_message('info', 'PHP post_max_size: ' . ini_get('post_max_size'));
+        log_message('info', 'PHP max_file_uploads: ' . ini_get('max_file_uploads'));
+
+        // Debug: Check if POST data is being received
+        log_message('info', 'POST data received: ' . json_encode($this->request->getPost()));
+        log_message('info', 'FILES data received: ' . json_encode($_FILES));
+
         $rules = [
             'applicant_name' => 'required|min_length[3]|max_length[100]',
             'father_name' => 'required|min_length[3]|max_length[100]',
@@ -122,10 +177,10 @@ class Member extends BaseController
             'ifsc_code' => 'required|min_length[11]|max_length[11]',
             'application_amount' => 'required|numeric',
             'application_reason' => 'required|min_length[20]',
-            'aadhar_document' => 'max_size[aadhar_document,2048]|ext_in[aadhar_document,jpg,jpeg,png,pdf]',
-            'income_document' => 'max_size[income_document,2048]|ext_in[income_document,jpg,jpeg,png,pdf]',
-            'bank_document' => 'max_size[bank_document,2048]|ext_in[bank_document,jpg,jpeg,png,pdf]',
-            'other_documents' => 'max_size[other_documents,2048]|ext_in[other_documents,jpg,jpeg,png,pdf]'
+            'aadhar_document' => 'permit_empty|max_size[aadhar_document,2048]|ext_in[aadhar_document,jpg,jpeg,png,pdf]',
+            'income_document' => 'permit_empty|max_size[income_document,2048]|ext_in[income_document,jpg,jpeg,png,pdf]',
+            'bank_document' => 'permit_empty|max_size[bank_document,2048]|ext_in[bank_document,jpg,jpeg,png,pdf]',
+            'other_documents' => 'permit_empty|max_size[other_documents,2048]|ext_in[other_documents,jpg,jpeg,png,pdf]'
         ];
 
         if (!$this->validate($rules)) {
@@ -138,11 +193,20 @@ class Member extends BaseController
 
         // Handle document uploads
         $documents = [];
-        $uploadPath = WRITEPATH . 'uploads/applications/';
+        $uploadPath = FCPATH . 'uploads/applications/';
         
         // Create directory if it doesn't exist
         if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
+            if (!mkdir($uploadPath, 0755, true)) {
+                log_message('error', 'Failed to create upload directory: ' . $uploadPath);
+                return redirect()->back()->withInput()->with('error', 'अपलोड डायरेक्टरी बनाने में त्रुटि हुई');
+            }
+        }
+
+        // Check if directory is writable
+        if (!is_writable($uploadPath)) {
+            log_message('error', 'Upload directory is not writable: ' . $uploadPath);
+            return redirect()->back()->withInput()->with('error', 'अपलोड डायरेक्टरी में लिखने की अनुमति नहीं है');
         }
 
         // Process each uploaded file
@@ -152,13 +216,34 @@ class Member extends BaseController
             $file = $this->request->getFile($field);
             
             if ($file && $file->isValid() && !$file->hasMoved()) {
-                // Generate unique filename
-                $fileName = time() . '_' . $field . '_' . $file->getRandomName();
-                
-                // Move file to upload directory
-                if ($file->move($uploadPath, $fileName)) {
-                    $documents[$field] = $fileName;
+                // Validate file size and type
+                if ($file->getSize() > 2048 * 1024) { // 2MB in bytes
+                    log_message('error', "File too large for field {$field}: " . $file->getSize());
+                    continue;
                 }
+                
+                $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
+                if (!in_array(strtolower($file->getClientExtension()), $allowedTypes)) {
+                    log_message('error', "Invalid file type for field {$field}: " . $file->getClientExtension());
+                    continue;
+                }
+                
+                // Generate short filename with prefix
+                $fileName = $this->generateShortFilename($field, $file->getClientExtension());
+                
+                try {
+                    // Move file to upload directory
+                    if ($file->move($uploadPath, $fileName)) {
+                        $documents[$field] = $fileName;
+                        log_message('info', "File uploaded successfully: {$field} -> {$fileName}");
+                    } else {
+                        log_message('error', "Failed to move file for field: {$field}");
+                    }
+                } catch (Exception $e) {
+                    log_message('error', "Exception during file upload for {$field}: " . $e->getMessage());
+                }
+            } elseif ($file && !$file->isValid()) {
+                log_message('error', "Invalid file for field {$field}: " . $file->getErrorString());
             }
         }
 
@@ -171,6 +256,7 @@ class Member extends BaseController
             'phone' => $this->request->getPost('phone'),
             'address' => $this->request->getPost('address'),
             'aadhar_number' => $this->request->getPost('aadhar_number'),
+            'income_certificate' => $this->request->getPost('income_certificate'),
             'bank_account' => $this->request->getPost('bank_account'),
             'ifsc_code' => $this->request->getPost('ifsc_code'),
             'application_amount' => $this->request->getPost('application_amount'),
@@ -179,15 +265,23 @@ class Member extends BaseController
             'status' => 'pending'
         ];
 
-        if ($this->applicationModel->insert($applicationData)) {
-            return redirect()->to('/member/applications')->with('success', 'विवाह सहायता आवेदन सफलतापूर्वक जमा किया गया');
-        } else {
-            return view('member/apply_vivah', [
-                'title' => 'विवाह सहायता आवेदन',
-                'user_name' => $this->session->get('user_name'),
-                'validation' => $this->validator,
-                'error' => 'आवेदन जमा करने में त्रुटि हुई'
-            ]);
+        // Log the data being inserted for debugging
+        log_message('info', 'Attempting to insert vivah application data: ' . json_encode($applicationData));
+        log_message('info', 'Uploaded documents: ' . json_encode($documents));
+
+        try {
+            if ($this->applicationModel->insert($applicationData)) {
+                $insertedId = $this->applicationModel->getInsertID();
+                log_message('info', "Vivah application inserted successfully with ID: {$insertedId}");
+                return redirect()->to('/member/applications')->with('success', 'विवाह सहायता आवेदन सफलतापूर्वक जमा किया गया');
+            } else {
+                $errors = $this->applicationModel->errors();
+                log_message('error', 'Failed to insert vivah application. Model errors: ' . json_encode($errors));
+                return redirect()->back()->withInput()->with('error', 'आवेदन जमा करने में त्रुटि हुई: ' . implode(', ', $errors));
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Exception during vivah application insertion: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'आवेदन जमा करने में त्रुटि हुई: ' . $e->getMessage());
         }
     }
 
@@ -222,9 +316,9 @@ class Member extends BaseController
             'application_amount' => 'required|numeric',
             'application_reason' => 'required|min_length[20]',
             'death_certificate' => 'uploaded[death_certificate]|max_size[death_certificate,2048]|ext_in[death_certificate,jpg,jpeg,png,pdf]',
-            'aadhar_document' => 'max_size[aadhar_document,2048]|ext_in[aadhar_document,jpg,jpeg,png,pdf]',
-            'income_document' => 'max_size[income_document,2048]|ext_in[income_document,jpg,jpeg,png,pdf]',
-            'bank_document' => 'max_size[bank_document,2048]|ext_in[bank_document,jpg,jpeg,png,pdf]'
+            'aadhar_document' => 'permit_empty|max_size[aadhar_document,2048]|ext_in[aadhar_document,jpg,jpeg,png,pdf]',
+            'income_document' => 'permit_empty|max_size[income_document,2048]|ext_in[income_document,jpg,jpeg,png,pdf]',
+            'bank_document' => 'permit_empty|max_size[bank_document,2048]|ext_in[bank_document,jpg,jpeg,png,pdf]'
         ];
 
         if (!$this->validate($rules)) {
@@ -237,15 +331,59 @@ class Member extends BaseController
 
         // Handle document uploads
         $documents = [];
-        $uploadPath = WRITEPATH . 'uploads/applications/';
+        $uploadPath = FCPATH . 'uploads/applications/';
         
         // Create directory if it doesn't exist
         if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
+            if (!mkdir($uploadPath, 0755, true)) {
+                log_message('error', 'Failed to create upload directory: ' . $uploadPath);
+                return redirect()->back()->withInput()->with('error', 'अपलोड डायरेक्टरी बनाने में त्रुटि हुई');
+            }
+        }
+
+        // Check if directory is writable
+        if (!is_writable($uploadPath)) {
+            log_message('error', 'Upload directory is not writable: ' . $uploadPath);
+            return redirect()->back()->withInput()->with('error', 'अपलोड डायरेक्टरी में लिखने की अनुमति नहीं है');
         }
 
         // Process each uploaded file
         $fileFields = ['death_certificate', 'aadhar_document', 'income_document', 'bank_document'];
+        
+        foreach ($fileFields as $field) {
+            $file = $this->request->getFile($field);
+            
+            if ($file && $file->isValid() && !$file->hasMoved()) {
+                // Validate file size and type
+                if ($file->getSize() > 2048 * 1024) { // 2MB in bytes
+                    log_message('error', "File too large for field {$field}: " . $file->getSize());
+                    continue;
+                }
+                
+                $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
+                if (!in_array(strtolower($file->getClientExtension()), $allowedTypes)) {
+                    log_message('error', "Invalid file type for field {$field}: " . $file->getClientExtension());
+                    continue;
+                }
+                
+                // Generate short filename with prefix
+                $fileName = $this->generateShortFilename($field, $file->getClientExtension());
+                
+                try {
+                    // Move file to upload directory
+                    if ($file->move($uploadPath, $fileName)) {
+                        $documents[$field] = $fileName;
+                        log_message('info', "File uploaded successfully: {$field} -> {$fileName}");
+                    } else {
+                        log_message('error', "Failed to move file for field: {$field}");
+                    }
+                } catch (Exception $e) {
+                    log_message('error', "Exception during file upload for {$field}: " . $e->getMessage());
+                }
+            } elseif ($file && !$file->isValid()) {
+                log_message('error', "Invalid file for field {$field}: " . $file->getErrorString());
+            }
+        }
         
         foreach ($fileFields as $field) {
             $file = $this->request->getFile($field);

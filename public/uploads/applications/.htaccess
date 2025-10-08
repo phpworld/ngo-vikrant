@@ -1,0 +1,25 @@
+Order Allow,Deny
+Allow from all
+
+# Prevent execution of PHP files
+<Files *.php>
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Prevent access to sensitive files
+<Files ~ "\.(htaccess|htpasswd|ini|log|sh|sql)$">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Restrict access to uploaded files (only images and PDFs)
+<FilesMatch "\.(jpg|jpeg|png|pdf)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+<FilesMatch "\.">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>

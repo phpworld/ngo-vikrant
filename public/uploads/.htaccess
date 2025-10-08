@@ -1,0 +1,14 @@
+Order Allow,Deny
+Allow from all
+
+# Prevent execution of PHP files
+<Files *.php>
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Prevent access to sensitive files
+<Files ~ "\.(htaccess|htpasswd|ini|log|sh|sql)$">
+    Order Deny,Allow
+    Deny from all
+</Files>

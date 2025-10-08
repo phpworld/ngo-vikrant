@@ -412,14 +412,33 @@ class Admin extends BaseController
         $auth = $this->checkAdminAuth();
         if ($auth !== true) return $auth;
 
-        $filepath = WRITEPATH . 'uploads/applications/' . $filename;
+        // Security: Sanitize filename to prevent directory traversal
+        $filename = basename($filename);
+        
+        // Try the new location first (public directory)
+        $filepath = FCPATH . 'uploads/applications/' . $filename;
+        
+        // If not found in new location, try old location for backward compatibility
+        if (!file_exists($filepath)) {
+            $filepath = WRITEPATH . 'uploads/applications/' . $filename;
+        }
         
         if (!file_exists($filepath)) {
-            return redirect()->back()->with('error', 'दस्तावेज नहीं मिला');
+            log_message('error', 'Document not found in both locations: ' . $filename);
+            return redirect()->back()->with('error', 'दस्तावेज नहीं मिला: ' . $filename);
         }
 
         // Check file type and set appropriate headers
         $mime = mime_content_type($filepath);
+        
+        // Additional security: Only allow specific file types
+        $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+        if (!in_array($mime, $allowedMimes)) {
+            log_message('error', 'Invalid file type accessed: ' . $mime . ' for file: ' . $filename);
+            return redirect()->back()->with('error', 'अवैध फाइल प्रकार');
+        }
+        
+        log_message('info', 'Document viewed: ' . $filename . ' by admin ID: ' . $this->session->get('admin_id'));
         
         return $this->response
                     ->setHeader('Content-Type', $mime)
@@ -432,11 +451,31 @@ class Admin extends BaseController
         $auth = $this->checkAdminAuth();
         if ($auth !== true) return $auth;
 
-        $filepath = WRITEPATH . 'uploads/applications/' . $filename;
+        // Security: Sanitize filename to prevent directory traversal
+        $filename = basename($filename);
+        
+        // Try the new location first (public directory)
+        $filepath = FCPATH . 'uploads/applications/' . $filename;
+        
+        // If not found in new location, try old location for backward compatibility
+        if (!file_exists($filepath)) {
+            $filepath = WRITEPATH . 'uploads/applications/' . $filename;
+        }
         
         if (!file_exists($filepath)) {
-            return redirect()->back()->with('error', 'दस्तावेज नहीं मिला');
+            log_message('error', 'Document not found for download in both locations: ' . $filename);
+            return redirect()->back()->with('error', 'दस्तावेज नहीं मिला: ' . $filename);
         }
+
+        // Check file type for security
+        $mime = mime_content_type($filepath);
+        $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+        if (!in_array($mime, $allowedMimes)) {
+            log_message('error', 'Invalid file type download attempted: ' . $mime . ' for file: ' . $filename);
+            return redirect()->back()->with('error', 'अवैध फाइल प्रकार');
+        }
+        
+        log_message('info', 'Document downloaded: ' . $filename . ' by admin ID: ' . $this->session->get('admin_id'));
 
         return $this->response->download($filepath, null);
     }

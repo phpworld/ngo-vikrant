@@ -151,13 +151,13 @@
                         </label>
                         <select name="type" class="form-select form-select-lg border-2">
                             <option value="">🏷️ सभी प्रकार देखें</option>
-                            <option value="vivah" <?= ($filters['type'] ?? '') === 'vivah' ? 'selected' : '' ?>>
+                            <option value="vivah_help" <?= ($filters['type'] ?? '') === 'vivah_help' ? 'selected' : '' ?>>
                                 💒 विवाह सहायता
                             </option>
-                            <option value="death" <?= ($filters['type'] ?? '') === 'death' ? 'selected' : '' ?>>
+                            <option value="death_help" <?= ($filters['type'] ?? '') === 'death_help' ? 'selected' : '' ?>>
                                 🕊️ मृत्यु सहायता
                             </option>
-                            <option value="education" <?= ($filters['type'] ?? '') === 'education' ? 'selected' : '' ?>>
+                            <option value="education_help" <?= ($filters['type'] ?? '') === 'education_help' ? 'selected' : '' ?>>
                                 📚 शिक्षा सहायता
                             </option>
                         </select>
@@ -248,8 +248,23 @@
                             <tr>
                                 <td><?= $index + 1 ?></td>
                                 <td>
-                                    <i class="fas fa-<?= strpos($application['application_type'], 'vivah') !== false ? 'heart' : 'praying-hands' ?> me-2 text-primary"></i>
-                                    <?= strpos($application['application_type'], 'vivah') !== false ? 'विवाह सहायता' : 'मृत्यु सहायता' ?>
+                                    <?php 
+                                    $icon = 'question-circle';
+                                    $label = 'अज्ञात सहायता';
+                                    
+                                    if (strpos($application['application_type'], 'vivah') !== false) {
+                                        $icon = 'heart';
+                                        $label = 'विवाह सहायता';
+                                    } elseif (strpos($application['application_type'], 'death') !== false) {
+                                        $icon = 'praying-hands';
+                                        $label = 'मृत्यु सहायता';
+                                    } elseif (strpos($application['application_type'], 'education') !== false) {
+                                        $icon = 'graduation-cap';
+                                        $label = 'शिक्षा सहायता';
+                                    }
+                                    ?>
+                                    <i class="fas fa-<?= $icon ?> me-2 text-primary"></i>
+                                    <?= $label ?>
                                 </td>
                                 <td><?= esc($application['applicant_name']) ?></td>
                                 <td><?= date('d/m/Y', strtotime($application['created_at'])) ?></td>
@@ -300,12 +315,22 @@
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                
+                <!-- Pagination -->
+                <?php if (isset($pager) && $pager->getPageCount() > 1): ?>
+                    <div class="d-flex justify-content-center mt-4">
+                        <?= $pager->links('default', 'custom_pagination') ?>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php else: ?>
             <div class="p-5 text-center text-muted">
                 <i class="fas fa-inbox fa-4x mb-3 opacity-25"></i>
                 <h5>कोई आवेदन नहीं मिला</h5>
-                <p class="mb-3">आपने अभी तक कोई आवेदन नहीं किया है।</p>
+                <p class="mb-3">फिल्टर मापदंड के अनुसार कोई आवेदन नहीं मिला।</p>
+                <a href="/member/applications" class="btn btn-outline-secondary me-2">
+                    <i class="fas fa-undo me-1"></i>फिल्टर रीसेट करें
+                </a>
                 <a href="/member/apply-vivah-help" class="btn btn-gradient me-2">
                     <i class="fas fa-heart me-1"></i>विवाह सहायता
                 </a>
@@ -325,8 +350,23 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">
-                            <i class="fas fa-<?= strpos($application['application_type'], 'vivah') !== false ? 'heart' : 'praying-hands' ?> me-2"></i>
-                            <?= strpos($application['application_type'], 'vivah') !== false ? 'विवाह सहायता' : 'मृत्यु सहायता' ?> आवेदन विवरण
+                            <?php 
+                            $icon = 'question-circle';
+                            $label = 'अज्ञात सहायता';
+                            
+                            if (strpos($application['application_type'], 'vivah') !== false) {
+                                $icon = 'heart';
+                                $label = 'विवाह सहायता';
+                            } elseif (strpos($application['application_type'], 'death') !== false) {
+                                $icon = 'praying-hands';
+                                $label = 'मृत्यु सहायता';
+                            } elseif (strpos($application['application_type'], 'education') !== false) {
+                                $icon = 'graduation-cap';
+                                $label = 'शिक्षा सहायता';
+                            }
+                            ?>
+                            <i class="fas fa-<?= $icon ?> me-2"></i>
+                            <?= $label ?> आवेदन विवरण
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
