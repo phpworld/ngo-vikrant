@@ -120,7 +120,11 @@ class Member extends BaseController
             'bank_account' => 'required|numeric|min_length[10]',
             'ifsc_code' => 'required|min_length[11]|max_length[11]',
             'application_amount' => 'required|numeric',
-            'application_reason' => 'required|min_length[20]'
+            'application_reason' => 'required|min_length[20]',
+            'aadhar_document' => 'max_size[aadhar_document,2048]|ext_in[aadhar_document,jpg,jpeg,png,pdf]',
+            'income_document' => 'max_size[income_document,2048]|ext_in[income_document,jpg,jpeg,png,pdf]',
+            'bank_document' => 'max_size[bank_document,2048]|ext_in[bank_document,jpg,jpeg,png,pdf]',
+            'other_documents' => 'max_size[other_documents,2048]|ext_in[other_documents,jpg,jpeg,png,pdf]'
         ];
 
         if (!$this->validate($rules)) {
@@ -129,6 +133,32 @@ class Member extends BaseController
                 'user_name' => $this->session->get('user_name'),
                 'validation' => $this->validator
             ]);
+        }
+
+        // Handle document uploads
+        $documents = [];
+        $uploadPath = WRITEPATH . 'uploads/applications/';
+        
+        // Create directory if it doesn't exist
+        if (!is_dir($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        // Process each uploaded file
+        $fileFields = ['aadhar_document', 'income_document', 'bank_document', 'other_documents'];
+        
+        foreach ($fileFields as $field) {
+            $file = $this->request->getFile($field);
+            
+            if ($file && $file->isValid() && !$file->hasMoved()) {
+                // Generate unique filename
+                $fileName = time() . '_' . $field . '_' . $file->getRandomName();
+                
+                // Move file to upload directory
+                if ($file->move($uploadPath, $fileName)) {
+                    $documents[$field] = $fileName;
+                }
+            }
         }
 
         $applicationData = [
@@ -144,6 +174,7 @@ class Member extends BaseController
             'ifsc_code' => $this->request->getPost('ifsc_code'),
             'application_amount' => $this->request->getPost('application_amount'),
             'application_reason' => $this->request->getPost('application_reason'),
+            'documents' => !empty($documents) ? json_encode($documents) : null,
             'status' => 'pending'
         ];
 
@@ -188,7 +219,11 @@ class Member extends BaseController
             'bank_account' => 'required|numeric|min_length[10]',
             'ifsc_code' => 'required|min_length[11]|max_length[11]',
             'application_amount' => 'required|numeric',
-            'application_reason' => 'required|min_length[20]'
+            'application_reason' => 'required|min_length[20]',
+            'death_certificate' => 'uploaded[death_certificate]|max_size[death_certificate,2048]|ext_in[death_certificate,jpg,jpeg,png,pdf]',
+            'aadhar_document' => 'max_size[aadhar_document,2048]|ext_in[aadhar_document,jpg,jpeg,png,pdf]',
+            'income_document' => 'max_size[income_document,2048]|ext_in[income_document,jpg,jpeg,png,pdf]',
+            'bank_document' => 'max_size[bank_document,2048]|ext_in[bank_document,jpg,jpeg,png,pdf]'
         ];
 
         if (!$this->validate($rules)) {
@@ -197,6 +232,32 @@ class Member extends BaseController
                 'user_name' => $this->session->get('user_name'),
                 'validation' => $this->validator
             ]);
+        }
+
+        // Handle document uploads
+        $documents = [];
+        $uploadPath = WRITEPATH . 'uploads/applications/';
+        
+        // Create directory if it doesn't exist
+        if (!is_dir($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        // Process each uploaded file
+        $fileFields = ['death_certificate', 'aadhar_document', 'income_document', 'bank_document'];
+        
+        foreach ($fileFields as $field) {
+            $file = $this->request->getFile($field);
+            
+            if ($file && $file->isValid() && !$file->hasMoved()) {
+                // Generate unique filename
+                $fileName = time() . '_' . $field . '_' . $file->getRandomName();
+                
+                // Move file to upload directory
+                if ($file->move($uploadPath, $fileName)) {
+                    $documents[$field] = $fileName;
+                }
+            }
         }
 
         $applicationData = [
@@ -212,6 +273,7 @@ class Member extends BaseController
             'ifsc_code' => $this->request->getPost('ifsc_code'),
             'application_amount' => $this->request->getPost('application_amount'),
             'application_reason' => $this->request->getPost('application_reason'),
+            'documents' => !empty($documents) ? json_encode($documents) : null,
             'status' => 'pending'
         ];
 
@@ -276,6 +338,61 @@ class Member extends BaseController
                 'user_name' => $this->session->get('user_name'),
                 'error' => 'प्रोफ़ाइल अपडेट करने में त्रुटि हुई'
             ]);
+        }
+    }
+
+    public function deleteApplication()
+    {
+        $auth = $this->checkMemberAuth();
+        if ($auth !== true) return $auth;
+
+        $applicationId = $this->request->getPost('application_id');
+        $userId = $this->session->get('user_id');
+
+        if (!$applicationId) {
+            return redirect()->to('/member/applications')->with('error', 'अमान्य आवेदन ID');
+        }
+
+        // Get the application to verify ownership and status
+        $application = $this->applicationModel->where('id', $applicationId)
+                                               ->where('user_id', $userId)
+                                               ->first();
+
+        if (!$application) {
+            return redirect()->to('/member/applications')->with('error', 'आवेदन नहीं मिला या आप इसे रद्द करने के अधिकारी नहीं हैं');
+        }
+
+        // Check if application can be deleted (only pending applications)
+        if ($application['status'] !== 'pending') {
+            $statusText = match($application['status']) {
+                'approved' => 'स्वीकृत',
+                'rejected' => 'अस्वीकृत',
+                'processing' => 'प्रक्रियाधीन',
+                default => $application['status']
+            };
+            return redirect()->to('/member/applications')
+                           ->with('error', "आप {$statusText} आवेदन को रद्द नहीं कर सकते। केवल लंबित आवेदन ही रद्द किए जा सकते हैं।");
+        }
+
+        // Delete associated documents if any
+        if (!empty($application['documents'])) {
+            $documents = json_decode($application['documents'], true);
+            if (is_array($documents)) {
+                $uploadPath = WRITEPATH . 'uploads/applications/';
+                foreach ($documents as $filename) {
+                    $filepath = $uploadPath . $filename;
+                    if (file_exists($filepath)) {
+                        unlink($filepath);
+                    }
+                }
+            }
+        }
+
+        // Delete the application
+        if ($this->applicationModel->delete($applicationId)) {
+            return redirect()->to('/member/applications')->with('success', 'आवेदन सफलतापूर्वक रद्द किया गया');
+        } else {
+            return redirect()->to('/member/applications')->with('error', 'आवेदन रद्द करने में त्रुटि हुई');
         }
     }
 }

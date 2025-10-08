@@ -381,11 +381,19 @@
                 </h6>
             </div>
             <div class="card-body">
-                <?php if ($application['status'] === 'approved' || $application['status'] === 'rejected'): ?>
-                    <!-- Status Change Warning for Final Decisions -->
+                <?php if ($application['status'] === 'approved'): ?>
+                    <!-- Special Warning for Approved Applications -->
+                    <div class="alert alert-danger">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <strong>महत्वपूर्ण चेतावनी:</strong> यह आवेदन पहले से <strong>स्वीकृत</strong> है। 
+                        स्वीकृत आवेदनों को रद्द या अस्वीकृत करना अनुशंसित नहीं है। 
+                        यदि आवश्यक हो तो सावधानी से कार्रवाई करें।
+                    </div>
+                <?php elseif ($application['status'] === 'rejected'): ?>
+                    <!-- Warning for Rejected Applications -->
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>चेतावनी:</strong> इस आवेदन पर पहले से निर्णय लिया जा चुका है। 
+                        <strong>चेतावनी:</strong> यह आवेदन पहले से अस्वीकृत है। 
                         स्थिति बदलने से पुराना निर्णय रद्द हो जाएगा।
                     </div>
                 <?php endif; ?>
@@ -529,19 +537,13 @@ function resetForm() {
 
 // Document viewing functions
 function viewDocument(filename) {
-    // For now, show alert. In production, this would open a modal or new tab
-    alert('दस्तावेज देखने की सुविधा शीघ्र उपलब्ध होगी।\n\nफाइल: ' + filename);
-    
-    // In production, you would do something like:
-    // window.open('/admin/view-document/' + encodeURIComponent(filename), '_blank');
+    // Open document in new tab for viewing
+    window.open('/admin/view-document/' + encodeURIComponent(filename), '_blank');
 }
 
 function downloadDocument(filename) {
-    // For now, show alert. In production, this would trigger download
-    alert('दस्तावेज डाउनलोड की सुविधा शीघ्र उपलब्ध होगी।\n\nफाइल: ' + filename);
-    
-    // In production, you would do something like:
-    // window.location.href = '/admin/download-document/' + encodeURIComponent(filename);
+    // Trigger download
+    window.location.href = '/admin/download-document/' + encodeURIComponent(filename);
 }
 
 // Enhanced form validation

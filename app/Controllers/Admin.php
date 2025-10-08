@@ -114,35 +114,84 @@ class Admin extends BaseController
         $auth = $this->checkAdminAuth();
         if ($auth !== true) return $auth;
 
+        // Get pagination parameters
+        $page = (int) ($this->request->getGet('page') ?? 1);
+        $perPage = 10; // Applications per page
         $filter = $this->request->getGet('filter') ?? 'all';
-        
+        $search = $this->request->getGet('search') ?? '';
+
+        // Build query based on filter
+        $builder = $this->applicationModel->select('applications.*, users.full_name as user_name, users.email, users.phone as user_phone, users.aadhar_number as user_aadhar')
+                                         ->join('users', 'users.id = applications.user_id');
+
+        // Apply status filter
         switch ($filter) {
             case 'pending':
-                $applications = $this->applicationModel->getPendingApplications();
+                $builder->where('applications.status', 'pending');
                 break;
             case 'approved':
-                $applications = $this->applicationModel->getApprovedApplications();
+                $builder->where('applications.status', 'approved');
                 break;
             case 'rejected':
-                $applications = $this->applicationModel->getRejectedApplications();
+                $builder->where('applications.status', 'rejected');
+                break;
+            case 'processing':
+                $builder->where('applications.status', 'processing');
                 break;
             case 'vivah':
-                $applications = $this->applicationModel->getApplicationsByType('vivah_help');
+                $builder->where('application_type', 'vivah_help');
                 break;
             case 'death':
-                $applications = $this->applicationModel->getApplicationsByType('death_help');
+                $builder->where('application_type', 'death_help');
                 break;
             case 'education':
-                $applications = $this->applicationModel->getApplicationsByType('education_help');
+                $builder->where('application_type', 'education_help');
                 break;
-            default:
-                $applications = $this->applicationModel->getApplicationsWithUserData();
+            // 'all' - no additional filter
         }
+
+        // Apply search filter
+        if ($search) {
+            $builder->groupStart()
+                   ->like('applicant_name', $search)
+                   ->orLike('users.full_name', $search)
+                   ->orLike('users.email', $search)
+                   ->orLike('applications.phone', $search)
+                   ->orLike('application_reason', $search)
+                   ->groupEnd();
+        }
+
+        // Order by latest first
+        $builder->orderBy('applications.created_at', 'DESC');
+
+        // Get paginated applications
+        $applications = $builder->paginate($perPage, 'default', $page);
+        $pager = $this->applicationModel->pager;
+
+        // Get statistics for cards
+        $totalApplications = $this->applicationModel->countAllResults(false);
+        $pendingApplications = $this->applicationModel->where('status', 'pending')->countAllResults(false);
+        $approvedApplications = $this->applicationModel->where('status', 'approved')->countAllResults(false);
+        $rejectedApplications = $this->applicationModel->where('status', 'rejected')->countAllResults(false);
+        $processingApplications = $this->applicationModel->where('status', 'processing')->countAllResults(false);
+        $todayApplications = $this->applicationModel->where('DATE(created_at)', date('Y-m-d'))->countAllResults(false);
 
         $data = [
             'title' => 'आवेदन प्रबंधन',
             'applications' => $applications,
-            'filter' => $filter,
+            'pager' => $pager,
+            'totalApplications' => $totalApplications,
+            'pendingApplications' => $pendingApplications,
+            'approvedApplications' => $approvedApplications,
+            'rejectedApplications' => $rejectedApplications,
+            'processingApplications' => $processingApplications,
+            'todayApplications' => $todayApplications,
+            'currentPage' => $page,
+            'perPage' => $perPage,
+            'filters' => [
+                'filter' => $filter,
+                'search' => $search
+            ],
             'user_name' => $this->session->get('user_name')
         ];
 
@@ -356,5 +405,39 @@ class Admin extends BaseController
         }
         
         return redirect()->to('/admin/users')->with('error', 'उपयोगकर्ता नहीं मिला');
+    }
+
+    public function viewDocument($filename)
+    {
+        $auth = $this->checkAdminAuth();
+        if ($auth !== true) return $auth;
+
+        $filepath = WRITEPATH . 'uploads/applications/' . $filename;
+        
+        if (!file_exists($filepath)) {
+            return redirect()->back()->with('error', 'दस्तावेज नहीं मिला');
+        }
+
+        // Check file type and set appropriate headers
+        $mime = mime_content_type($filepath);
+        
+        return $this->response
+                    ->setHeader('Content-Type', $mime)
+                    ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
+                    ->setBody(file_get_contents($filepath));
+    }
+
+    public function downloadDocument($filename)
+    {
+        $auth = $this->checkAdminAuth();
+        if ($auth !== true) return $auth;
+
+        $filepath = WRITEPATH . 'uploads/applications/' . $filename;
+        
+        if (!file_exists($filepath)) {
+            return redirect()->back()->with('error', 'दस्तावेज नहीं मिला');
+        }
+
+        return $this->response->download($filepath, null);
     }
 }

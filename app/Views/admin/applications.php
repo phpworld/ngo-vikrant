@@ -40,7 +40,7 @@
                             कुल आवेदन
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= count($applications) ?>
+                            <?= $totalApplications ?>
                         </div>
                     </div>
                     <div class="flex-shrink-0">
@@ -61,7 +61,7 @@
                             लंबित आवेदन
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= count(array_filter($applications, function($app) { return $app['status'] == 'pending'; })) ?>
+                            <?= $pendingApplications ?>
                         </div>
                     </div>
                     <div class="flex-shrink-0">
@@ -73,58 +73,112 @@
             </div>
         </div>
     </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">स्वीकृत आवेदन</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                <?= count(array_filter($applications, function($app) { return $app['status'] == 'approved'; })) ?>
-                            </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            स्वीकृत आवेदन
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            <?= $approvedApplications ?>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-danger shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">अस्वीकृत आवेदन</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                <?= count(array_filter($applications, function($app) { return $app['status'] == 'rejected'; })) ?>
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                    <div class="flex-shrink-0">
+                        <div class="stat-icon bg-success">
+                            <i class="fas fa-check-circle text-white"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                            अस्वीकृत आवेदन
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            <?= $rejectedApplications ?>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="stat-icon bg-danger">
+                            <i class="fas fa-times-circle text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Search and Filter Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-search me-2"></i>खोज और फ़िल्टर
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="/admin/applications" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">खोजें</label>
+                    <input type="text" class="form-control" name="search" 
+                           value="<?= esc($filters['search']) ?>" 
+                           placeholder="नाम, ईमेल, फोन या कारण खोजें...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">स्थिति के अनुसार</label>
+                    <select class="form-select" name="filter">
+                        <option value="all" <?= $filters['filter'] === 'all' ? 'selected' : '' ?>>सभी आवेदन</option>
+                        <option value="pending" <?= $filters['filter'] === 'pending' ? 'selected' : '' ?>>लंबित</option>
+                        <option value="processing" <?= $filters['filter'] === 'processing' ? 'selected' : '' ?>>प्रक्रियाधीन</option>
+                        <option value="approved" <?= $filters['filter'] === 'approved' ? 'selected' : '' ?>>स्वीकृत</option>
+                        <option value="rejected" <?= $filters['filter'] === 'rejected' ? 'selected' : '' ?>>अस्वीकृत</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">प्रकार के अनुसार</label>
+                    <select class="form-select" name="type_filter">
+                        <option value="all" <?= ($filters['filter'] ?? '') === 'all' ? 'selected' : '' ?>>सभी प्रकार</option>
+                        <option value="vivah" <?= ($filters['filter'] ?? '') === 'vivah' ? 'selected' : '' ?>>विवाह सहायता</option>
+                        <option value="death" <?= ($filters['filter'] ?? '') === 'death' ? 'selected' : '' ?>>मृत्यु सहायता</option>
+                        <option value="education" <?= ($filters['filter'] ?? '') === 'education' ? 'selected' : '' ?>>शिक्षा सहायता</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i>खोजें
+                        </button>
+                        <a href="/admin/applications" class="btn btn-outline-secondary">
+                            <i class="fas fa-undo me-1"></i>रीसेट
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Applications Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">आवेदनों की सूची</h6>
+            <h6 class="m-0 font-weight-bold text-primary">
+                आवेदनों की सूची 
+                <?php if (!empty($applications)): ?>
+                    <span class="badge bg-info ms-2"><?= count($applications) ?> प्रविष्टियां</span>
+                <?php endif; ?>
+            </h6>
             <div class="d-flex gap-2">
-                <select class="form-select" id="statusFilter" style="width: 150px;">
-                    <option value="">सभी स्थिति</option>
-                    <option value="pending">लंबित</option>
-                    <option value="approved">स्वीकृत</option>
-                    <option value="rejected">अस्वीकृत</option>
-                </select>
-                <select class="form-select" id="typeFilter" style="width: 150px;">
-                    <option value="">सभी प्रकार</option>
-                    <option value="vivah_help">विवाह सहायता</option>
-                    <option value="death_help">मृत्यु सहायता</option>
-                </select>
+                <button class="btn btn-success" onclick="exportApplications()">
+                    <i class="fas fa-download me-2"></i>एक्सपोर्ट करें
+                </button>
             </div>
         </div>
         <div class="card-body">
@@ -190,6 +244,28 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination Controls -->
+            <?php if (!empty($applications)): ?>
+                <div class="card-footer">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <span class="text-muted">
+                                    पृष्ठ <?= $currentPage ?> का <?= $pager->getPageCount() ?> | 
+                                    कुल <?= $totalApplications ?> आवेदन | 
+                                    प्रति पृष्ठ <?= $perPage ?> प्रविष्टियां
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-end">
+                                <?= $pager->links('default', 'bootstrap_pagination') ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -215,34 +291,18 @@
 .border-left-warning { border-left: 0.25rem solid #ffc107 !important; }
 .border-left-info { border-left: 0.25rem solid #17a2b8 !important; }
 .border-left-danger { border-left: 0.25rem solid #dc3545 !important; }
+
+.stat-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 </style>
 
 <script>
-function filterApplications() {
-    const statusFilter = document.getElementById('statusFilter').value;
-    const typeFilter = document.getElementById('typeFilter').value;
-    const rows = document.querySelectorAll('#applicationsTable tbody tr[data-app-id]');
-    
-    rows.forEach(row => {
-        const status = row.cells[4].textContent.toLowerCase();
-        const type = row.cells[2].textContent.toLowerCase();
-        
-        const matchesStatus = !statusFilter || 
-            (statusFilter === 'pending' && status.includes('लंबित')) ||
-            (statusFilter === 'approved' && status.includes('स्वीकृत')) ||
-            (statusFilter === 'rejected' && status.includes('अस्वीकृत'));
-            
-        const matchesType = !typeFilter ||
-            (typeFilter === 'vivah_help' && type.includes('विवाह')) ||
-            (typeFilter === 'death_help' && type.includes('मृत्यु'));
-        
-        row.style.display = matchesStatus && matchesType ? '' : 'none';
-    });
-}
-
-document.getElementById('statusFilter').addEventListener('change', filterApplications);
-document.getElementById('typeFilter').addEventListener('change', filterApplications);
-
 function viewApplication(applicationId) {
     // Redirect to application details page
     window.location.href = '/admin/application-details/' + applicationId;
@@ -252,6 +312,17 @@ function exportApplications() {
     // Implementation for exporting applications
     window.location.href = '/admin/export-applications';
 }
+
+// Auto-submit form on filter change for better UX
+document.addEventListener('DOMContentLoaded', function() {
+    const filterSelects = document.querySelectorAll('select[name="filter"], select[name="type_filter"]');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // Auto-submit the form when filter changes
+            this.form.submit();
+        });
+    });
+});
 </script>
 
 <?= $this->endSection() ?>

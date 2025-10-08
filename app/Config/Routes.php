@@ -38,6 +38,8 @@ $routes->group('admin', ['filter' => 'auth'], function($routes) {
     $routes->get('settings', 'Admin::settings');
     $routes->get('delete-user/(:num)', 'Admin::deleteUser/$1');
     $routes->get('toggle-user-status/(:num)', 'Admin::toggleUserStatus/$1');
+    $routes->get('view-document/(:segment)', 'Admin::viewDocument/$1');
+    $routes->get('download-document/(:segment)', 'Admin::downloadDocument/$1');
 });
 
 // Member Routes
@@ -51,4 +53,5 @@ $routes->group('member', ['filter' => 'auth'], function($routes) {
     $routes->post('apply-vivah-help', 'Member::processVivahApplication');
     $routes->get('apply-death-help', 'Member::applyDeathHelp');
     $routes->post('apply-death-help', 'Member::processDeathApplication');
+    $routes->post('delete-application', 'Member::deleteApplication');
 });
